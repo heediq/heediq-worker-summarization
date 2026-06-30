@@ -1,0 +1,10 @@
+packages:
+  - '.'
+onlyBuiltDependencies:
+  - esbuild
+  - msw
+minimumReleaseAgeExclude:
+  - '@heediq/shared@0.1.0'
+allowBuilds:
+  esbuild: true
+  msw: true
