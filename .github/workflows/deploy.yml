@@ -25,6 +25,8 @@ jobs:
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - run: pnpm run test:pre-pr
 
@@ -45,6 +47,8 @@ jobs:
           cache: 'pnpm'
 
       - run: pnpm install --frozen-lockfile
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: esbuild bundle
         run: pnpm run bundle
