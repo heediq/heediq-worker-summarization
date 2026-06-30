@@ -17,14 +17,17 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
+          cache: pnpm
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@heediq'
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -39,14 +42,17 @@ jobs:
 
       - uses: pnpm/action-setup@v4
         with:
-          version: 9
+          version: 11
 
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'pnpm'
+          cache: pnpm
+          registry-url: 'https://npm.pkg.github.com'
+          scope: '@heediq'
 
-      - run: pnpm install --frozen-lockfile
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
