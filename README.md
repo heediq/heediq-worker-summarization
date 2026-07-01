@@ -19,14 +19,15 @@ Node.js Lambda worker that reads a completed recording's transcript, sends it to
 
 ```
 SQS heediq-summarization (batchSize=1)
-  │  SummarizationJobMessage { jobId, recordingId, orgId, sourceType, contentRef }
+  │  SummarizationJobMessage { jobId, recordingId, orgId, sourceType, contentRef, tier }
   ▼
 Lambda handler
   ├── writeStatus(jobId, 'summarizing')          → heediq-jobs table
   ├── loadContent(msg) →
   │     sourceType='text': GET heediq-recordings[recordingId].transcript  (contentRef IS recordingId)
   │     sourceType='audio': S3 GetObject(contentRef)                      (future path)
-  ├── ClaudeProvider.extract(transcript)         → claude-sonnet-4-6, JSON response
+  ├── ClaudeProvider.extract(transcript)         → free: claude-haiku-4-5-20251001
+  │                                                paid: claude-sonnet-4-6  (D-067)
   ├── writeSummary(recordingId, extraction)      → heediq-recordings table
   └── writeStatus(jobId, 'done')                 → heediq-jobs table
       (on error: writeStatus(jobId, 'failed') + rethrow → SQS retry → DLQ after 3 attempts)
@@ -43,6 +44,7 @@ Lambda handler
 | `orgId` | UUID | For tenant isolation on writes |
 | `sourceType` | `'text' \| 'audio'` | Determines content-load path |
 | `contentRef` | string | `sourceType=text` → recordingId; `sourceType=audio` → S3 key |
+| `tier` | `'free' \| 'paid'` | Selects Claude model: free → Haiku, paid → Sonnet (D-067) |
 
 ### DynamoDB writes
 
@@ -53,11 +55,11 @@ Lambda handler
 
 | Var | Source |
 |---|---|
-| `JOBS_TABLE` | DynamoDB table name |
-| `RECORDINGS_TABLE` | DynamoDB table name |
-| `AUDIO_BUCKET` | S3 bucket name |
-| `CLAUDE_SECRET_NAME` | Secrets Manager secret path (`/heediq/summarization/claude-api-key`) |
-| `AWS_REGION` | Injected by Lambda runtime |
+| `JOBS_TABLE_NAME` | DynamoDB table name (CDK-injected) |
+| `RECORDINGS_TABLE_NAME` | DynamoDB table name (CDK-injected) |
+| `AUDIO_BUCKET_NAME` | S3 bucket name (CDK-injected) |
+| `CLAUDE_SECRET_NAME` | Hardcoded to `/heediq/summarization/anthropic-api-key` by CDK |
+| `AWS_REGION` | Injected automatically by Lambda runtime |
 
 Claude API key is fetched from Secrets Manager at cold start — never passed as an env var in plaintext (D-038).
 
