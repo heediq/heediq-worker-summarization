@@ -24,7 +24,7 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
 vi.mock('@aws-sdk/client-s3', () => ({ S3Client: vi.fn().mockReturnValue({}) }))
 vi.mock('../content-loader.js', () => ({ loadContent: mockLoadContent }))
 vi.mock('../provider.js', () => ({
-  ClaudeProvider: vi.fn().mockImplementation(() => ({ extract: mockExtract })),
+  ClaudeProvider: vi.fn().mockImplementation((_key: string, _model: string) => ({ extract: mockExtract })),
 }))
 vi.mock('../writer.js', () => ({ writeStatus: mockWriteStatus, writeSummary: mockWriteSummary }))
 
@@ -54,6 +54,7 @@ const VALID_MSG = {
   orgId: '00000000-0000-0000-0000-000000000003',
   sourceType: 'text',
   contentRef: '00000000-0000-0000-0000-000000000002',
+  tier: 'free',
 }
 
 beforeEach(() => {
@@ -99,5 +100,17 @@ describe('handler', () => {
       handler(makeSQSEvent({ bad: 'payload' }), {} as any, () => undefined),
     ).rejects.toThrow()
     expect(mockWriteStatus).not.toHaveBeenCalled()
+  })
+
+  it('instantiates ClaudeProvider with haiku model for free tier', async () => {
+    const { ClaudeProvider } = await import('../provider.js')
+    await handler(makeSQSEvent({ ...VALID_MSG, tier: 'free' }), {} as any, () => undefined)
+    expect(ClaudeProvider).toHaveBeenCalledWith(expect.any(String), 'claude-haiku-4-5-20251001')
+  })
+
+  it('instantiates ClaudeProvider with sonnet model for paid tier', async () => {
+    const { ClaudeProvider } = await import('../provider.js')
+    await handler(makeSQSEvent({ ...VALID_MSG, tier: 'paid' }), {} as any, () => undefined)
+    expect(ClaudeProvider).toHaveBeenCalledWith(expect.any(String), 'claude-sonnet-4-6')
   })
 })

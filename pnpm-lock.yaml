@@ -24,8 +24,8 @@ importers:
         specifier: ^3.600.0
         version: 3.1076.0(@aws-sdk/client-dynamodb@3.1076.0)
       '@heediq/shared':
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: file:/Users/andriiperevoznyi/dev/heediq/heediq-shared/heediq-shared-0.1.1.tgz
+        version: file:../heediq-shared/heediq-shared-0.1.1.tgz
       zod:
         specifier: ^3.23.8
         version: 3.25.76
@@ -483,8 +483,9 @@ packages:
     cpu: [x64]
     os: [win32]
 
-  '@heediq/shared@0.1.0':
-    resolution: {integrity: sha512-w8HZgJZtINaCLBIf5M3fcjhHowkBX04pD0LhKeRtqpcIQD2peB0Dx23iSQJZyaKPmErwQC2AnEQ/J550fJBL+g==, tarball: https://npm.pkg.github.com/download/@heediq/shared/0.1.0/cf63d64763af8cd723734155e7afab07b26e6539}
+  '@heediq/shared@file:../heediq-shared/heediq-shared-0.1.1.tgz':
+    resolution: {integrity: sha512-BIkwWtb2+k/xcX5NUJaF0bHb5HgWoT8jV6wRIOHV59kHjK4+WxFVh+REhT7N5SpDsSsi5xV551vlfoZi1k0vFw==, tarball: file:../heediq-shared/heediq-shared-0.1.1.tgz}
+    version: 0.1.1
     engines: {node: '>=22'}
 
   '@inquirer/ansi@2.0.7':
@@ -1702,7 +1703,7 @@ snapshots:
   '@esbuild/win32-x64@0.28.1':
     optional: true
 
-  '@heediq/shared@0.1.0':
+  '@heediq/shared@file:../heediq-shared/heediq-shared-0.1.1.tgz':
     dependencies:
       zod: 3.25.76
 
