@@ -31,14 +31,16 @@ Return only valid JSON, no markdown, no explanation.`
 
 export class ClaudeProvider implements ExtractionProvider {
   private readonly client: Anthropic
+  private readonly model: string
 
-  constructor(apiKey: string) {
+  constructor(apiKey: string, model: string) {
     this.client = new Anthropic({ apiKey })
+    this.model = model
   }
 
   async extract(content: string): Promise<ExtractionResult> {
     const message = await this.client.messages.create({
-      model: 'claude-sonnet-4-6',
+      model: this.model,
       max_tokens: 4096,
       system: SYSTEM_PROMPT,
       messages: [{ role: 'user', content }],

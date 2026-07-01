@@ -15,7 +15,7 @@ function requireEnv(name: string): string {
 }
 
 export async function loadConfig(): Promise<Config> {
-  const awsRegion = requireEnv('AWS_DEFAULT_REGION')
+  const awsRegion = process.env['AWS_REGION'] ?? 'eu-west-1'
   const claudeSecretName = requireEnv('CLAUDE_SECRET_NAME')
 
   // Claude API key fetched from Secrets Manager at cold start — never in env vars or logs (D-038)

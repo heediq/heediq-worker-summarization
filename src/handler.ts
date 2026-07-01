@@ -2,27 +2,33 @@ import { DynamoDBClient } from '@aws-sdk/client-dynamodb'
 import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { S3Client } from '@aws-sdk/client-s3'
 import type { SQSHandler } from 'aws-lambda'
+import type { Tier } from '@heediq/shared'
 import { SummarizationJobMessageSchema } from '@heediq/shared'
 import { loadConfig } from './config.js'
 import { loadContent } from './content-loader.js'
 import { ClaudeProvider } from './provider.js'
 import { writeStatus, writeSummary } from './writer.js'
 
+const MODELS: Record<Tier, string> = {
+  free: 'claude-haiku-4-5-20251001',
+  paid: 'claude-sonnet-4-6',
+}
+
 // Config and clients are initialised once per cold start — not per invocation.
 // loadConfig() fetches the Claude API key from Secrets Manager; subsequent invocations reuse it.
 let cachedDynamodb: DynamoDBDocumentClient | undefined
 let cachedS3: S3Client | undefined
-let cachedProvider: ClaudeProvider | undefined
+let cachedApiKey: string | undefined
 let cachedJobsTable: string | undefined
 let cachedRecordingsTable: string | undefined
 let cachedAudioBucket: string | undefined
 
-async function getClients() {
-  if (!cachedDynamodb || !cachedS3 || !cachedProvider) {
+async function getClients(tier: Tier) {
+  if (!cachedDynamodb || !cachedS3 || !cachedApiKey) {
     const config = await loadConfig()
     cachedDynamodb = DynamoDBDocumentClient.from(new DynamoDBClient({ region: config.awsRegion }))
     cachedS3 = new S3Client({ region: config.awsRegion })
-    cachedProvider = new ClaudeProvider(config.claudeApiKey)
+    cachedApiKey = config.claudeApiKey
     cachedJobsTable = config.jobsTable
     cachedRecordingsTable = config.recordingsTable
     cachedAudioBucket = config.audioBucket
@@ -30,7 +36,7 @@ async function getClients() {
   return {
     dynamodb: cachedDynamodb,
     s3: cachedS3,
-    provider: cachedProvider,
+    provider: new ClaudeProvider(cachedApiKey, MODELS[tier]),
     jobsTable: cachedJobsTable!,
     recordingsTable: cachedRecordingsTable!,
     audioBucket: cachedAudioBucket!,
@@ -38,11 +44,10 @@ async function getClients() {
 }
 
 export const handler: SQSHandler = async (event) => {
-  const { dynamodb, s3, provider, jobsTable, recordingsTable, audioBucket } = await getClients()
-
   // SummarizationStack wires batchSize=1; iterate defensively in case that ever changes
   for (const record of event.Records) {
     const msg = SummarizationJobMessageSchema.parse(JSON.parse(record.body))
+    const { dynamodb, s3, provider, jobsTable, recordingsTable, audioBucket } = await getClients(msg.tier)
 
     try {
       await writeStatus(msg.jobId, 'summarizing', dynamodb, jobsTable)

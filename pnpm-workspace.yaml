@@ -5,6 +5,7 @@ onlyBuiltDependencies:
   - msw
 minimumReleaseAgeExclude:
   - '@heediq/shared@0.1.0'
+  - '@heediq/shared@0.1.1'
 allowBuilds:
   esbuild: true
   msw: true

@@ -30,7 +30,7 @@ afterAll(() => server.close())
 
 describe('ClaudeProvider', () => {
   it('extracts structured fields from transcript text via Claude API', async () => {
-    const provider = new ClaudeProvider('test-api-key')
+    const provider = new ClaudeProvider('test-api-key', 'claude-sonnet-4-6')
     const result = await provider.extract('Meeting transcript content here.')
 
     expect(result.requirements).toEqual(EXTRACTION_RESPONSE.requirements)
@@ -53,7 +53,7 @@ describe('ClaudeProvider', () => {
         }),
       ),
     )
-    const provider = new ClaudeProvider('test-api-key')
+    const provider = new ClaudeProvider('test-api-key', 'claude-haiku-4-5-20251001')
     await expect(provider.extract('text')).rejects.toThrow()
   })
 })
