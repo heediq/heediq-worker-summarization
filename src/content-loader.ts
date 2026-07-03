@@ -7,31 +7,31 @@ export interface ContentLoaderClients {
   s3: S3Client
 }
 
-// When sourceType='text', contentRef is the recordingId (NOT an S3 key). The transcript was
-// written to heediq-recordings[recordingId].transcript by heediq-worker-transcription, which
+// When sourceType='text', contentRef is the sourceId (NOT an S3 key). The transcript was
+// written to heediq-sources[sourceId].transcript by heediq-worker-transcription, which
 // has no S3 write grant on its task role.
 export async function loadContent(
   msg: SummarizationJobMessage,
-  recordingsTable: string,
+  sourcesTable: string,
   audioBucket: string,
   clients: ContentLoaderClients,
 ): Promise<string> {
   if (msg.sourceType === 'text') {
-    return loadFromDynamoDB(msg.contentRef, recordingsTable, clients.dynamodb)
+    return loadFromDynamoDB(msg.contentRef, sourcesTable, clients.dynamodb)
   }
   return loadFromS3(msg.contentRef, audioBucket, clients.s3)
 }
 
 async function loadFromDynamoDB(
-  recordingId: string,
-  recordingsTable: string,
+  sourceId: string,
+  sourcesTable: string,
   dynamodb: DynamoDBDocumentClient,
 ): Promise<string> {
   const result = await dynamodb.send(
-    new GetCommand({ TableName: recordingsTable, Key: { recordingId } }),
+    new GetCommand({ TableName: sourcesTable, Key: { sourceId } }),
   )
   const transcript = result.Item?.['transcript'] as string | undefined
-  if (!transcript) throw new Error(`No transcript found for recordingId=${recordingId}`)
+  if (!transcript) throw new Error(`No transcript found for sourceId=${sourceId}`)
   return transcript
 }
 

@@ -11,7 +11,7 @@ const mockWriteSummary = vi.fn()
 vi.mock('../config.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     jobsTable: 'heediq-jobs',
-    recordingsTable: 'heediq-recordings',
+    sourcesTable: 'heediq-sources',
     audioBucket: 'heediq-audio',
     claudeApiKey: 'test-key',
     awsRegion: 'eu-west-1',
@@ -50,7 +50,7 @@ function makeSQSEvent(body: object): SQSEvent {
 
 const VALID_MSG = {
   jobId: '00000000-0000-0000-0000-000000000001',
-  recordingId: '00000000-0000-0000-0000-000000000002',
+  sourceId: '00000000-0000-0000-0000-000000000002',
   orgId: '00000000-0000-0000-0000-000000000003',
   sourceType: 'text',
   contentRef: '00000000-0000-0000-0000-000000000002',

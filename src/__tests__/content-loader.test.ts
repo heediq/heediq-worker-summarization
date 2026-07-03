@@ -4,7 +4,7 @@ import type { SummarizationJobMessage } from '@heediq/shared'
 
 const BASE_MSG: SummarizationJobMessage = {
   jobId: '00000000-0000-0000-0000-000000000001',
-  recordingId: '00000000-0000-0000-0000-000000000002',
+  sourceId: '00000000-0000-0000-0000-000000000002',
   orgId: '00000000-0000-0000-0000-000000000003',
   sourceType: 'text',
   contentRef: '00000000-0000-0000-0000-000000000002',
@@ -12,7 +12,7 @@ const BASE_MSG: SummarizationJobMessage = {
 
 function makeDynamoMock(transcript: string | undefined) {
   return {
-    send: vi.fn().mockResolvedValue({ Item: transcript ? { recordingId: BASE_MSG.recordingId, transcript } : {} }),
+    send: vi.fn().mockResolvedValue({ Item: transcript ? { sourceId: BASE_MSG.sourceId, transcript } : {} }),
   } as any
 }
 
@@ -27,7 +27,7 @@ describe('loadContent', () => {
     const dynamodb = makeDynamoMock('hello world')
     const s3 = makeS3Mock('')
 
-    const content = await loadContent(BASE_MSG, 'heediq-recordings', 'heediq-audio', { dynamodb, s3 })
+    const content = await loadContent(BASE_MSG, 'heediq-sources', 'heediq-audio', { dynamodb, s3 })
 
     expect(content).toBe('hello world')
     expect(dynamodb.send).toHaveBeenCalledOnce()
@@ -39,7 +39,7 @@ describe('loadContent', () => {
     const s3 = makeS3Mock('')
 
     await expect(
-      loadContent(BASE_MSG, 'heediq-recordings', 'heediq-audio', { dynamodb, s3 }),
+      loadContent(BASE_MSG, 'heediq-sources', 'heediq-audio', { dynamodb, s3 }),
     ).rejects.toThrow('No transcript found')
   })
 
@@ -48,7 +48,7 @@ describe('loadContent', () => {
     const dynamodb = makeDynamoMock(undefined)
     const msg: SummarizationJobMessage = { ...BASE_MSG, sourceType: 'audio', contentRef: 'orgs/o/r/audio.txt' }
 
-    const content = await loadContent(msg, 'heediq-recordings', 'heediq-audio', { dynamodb, s3 })
+    const content = await loadContent(msg, 'heediq-sources', 'heediq-audio', { dynamodb, s3 })
 
     expect(content).toBe('audio-derived-content')
     expect(s3.send).toHaveBeenCalledOnce()
