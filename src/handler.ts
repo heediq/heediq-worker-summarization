@@ -20,7 +20,7 @@ let cachedDynamodb: DynamoDBDocumentClient | undefined
 let cachedS3: S3Client | undefined
 let cachedApiKey: string | undefined
 let cachedJobsTable: string | undefined
-let cachedRecordingsTable: string | undefined
+let cachedSourcesTable: string | undefined
 let cachedAudioBucket: string | undefined
 
 async function getClients(tier: Tier) {
@@ -30,7 +30,7 @@ async function getClients(tier: Tier) {
     cachedS3 = new S3Client({ region: config.awsRegion })
     cachedApiKey = config.claudeApiKey
     cachedJobsTable = config.jobsTable
-    cachedRecordingsTable = config.recordingsTable
+    cachedSourcesTable = config.sourcesTable
     cachedAudioBucket = config.audioBucket
   }
   return {
@@ -38,7 +38,7 @@ async function getClients(tier: Tier) {
     s3: cachedS3,
     provider: new ClaudeProvider(cachedApiKey, MODELS[tier]),
     jobsTable: cachedJobsTable!,
-    recordingsTable: cachedRecordingsTable!,
+    sourcesTable: cachedSourcesTable!,
     audioBucket: cachedAudioBucket!,
   }
 }
@@ -47,15 +47,15 @@ export const handler: SQSHandler = async (event) => {
   // SummarizationStack wires batchSize=1; iterate defensively in case that ever changes
   for (const record of event.Records) {
     const msg = SummarizationJobMessageSchema.parse(JSON.parse(record.body))
-    const { dynamodb, s3, provider, jobsTable, recordingsTable, audioBucket } = await getClients(msg.tier)
+    const { dynamodb, s3, provider, jobsTable, sourcesTable, audioBucket } = await getClients(msg.tier)
 
     try {
       await writeStatus(msg.jobId, 'summarizing', dynamodb, jobsTable)
 
-      const content = await loadContent(msg, recordingsTable, audioBucket, { dynamodb, s3 })
+      const content = await loadContent(msg, sourcesTable, audioBucket, { dynamodb, s3 })
       const extraction = await provider.extract(content)
 
-      await writeSummary(msg.recordingId, msg.orgId, extraction, dynamodb, recordingsTable)
+      await writeSummary(msg.sourceId, msg.orgId, extraction, dynamodb, sourcesTable)
       await writeStatus(msg.jobId, 'done', dynamodb, jobsTable)
     } catch (err) {
       // Log job ID only — never transcript text (D-038 PII rule)

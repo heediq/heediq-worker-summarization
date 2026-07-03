@@ -26,12 +26,12 @@ describe('writeStatus', () => {
 })
 
 describe('writeSummary', () => {
-  it('writes all four extraction fields to the recordings table', async () => {
+  it('writes all four extraction fields to the sources table', async () => {
     const dynamodb = makeDynamoMock()
-    await writeSummary('rec-1', 'org-1', EXTRACTION, dynamodb, 'heediq-recordings')
+    await writeSummary('src-1', 'org-1', EXTRACTION, dynamodb, 'heediq-sources')
 
     const cmd = dynamodb.send.mock.calls[0][0]
-    expect(cmd.input.TableName).toBe('heediq-recordings')
+    expect(cmd.input.TableName).toBe('heediq-sources')
     const vals = cmd.input.ExpressionAttributeValues
     expect(vals[':req']).toEqual(['req-1'])
     expect(vals[':dec']).toEqual(['dec-1'])

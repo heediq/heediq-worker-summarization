@@ -20,16 +20,16 @@ export async function writeStatus(
 }
 
 export async function writeSummary(
-  recordingId: string,
+  sourceId: string,
   orgId: string,
   extraction: ExtractionResult,
   dynamodb: DynamoDBDocumentClient,
-  recordingsTable: string,
+  sourcesTable: string,
 ): Promise<void> {
   await dynamodb.send(
     new UpdateCommand({
-      TableName: recordingsTable,
-      Key: { recordingId },
+      TableName: sourcesTable,
+      Key: { sourceId },
       UpdateExpression:
         'SET orgId = :orgId, requirements = :req, decisions = :dec, openQuestions = :oq, actionItems = :ai, updatedAt = :now',
       ExpressionAttributeValues: {
