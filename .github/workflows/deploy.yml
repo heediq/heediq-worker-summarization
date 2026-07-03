@@ -4,8 +4,9 @@ on:
   push:
     branches: [develop, main]
 
+# AWS_REGION is resolved from the GitHub organization-level Actions variable
+# (D-070) — not hardcoded per repo.
 env:
-  AWS_REGION: eu-west-1
   LAMBDA_FUNCTION: heediq-summarization
 
 jobs:
@@ -88,7 +89,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::276594885933:role/GitHubActionsDeployRole
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Update Lambda code
         run: |
@@ -115,7 +116,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::475790160542:role/GitHubActionsDeployRole
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Update Lambda code
         run: |
@@ -142,7 +143,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v4
         with:
           role-to-assume: arn:aws:iam::438825592314:role/GitHubActionsDeployRole
-          aws-region: ${{ env.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
 
       - name: Update Lambda code
         run: |
