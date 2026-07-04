@@ -3,6 +3,7 @@ packages:
 onlyBuiltDependencies:
   - esbuild
   - msw
+minimumReleaseAge: 0
 minimumReleaseAgeExclude:
   - '@heediq/shared@0.1.0'
   - '@heediq/shared@0.1.1'
