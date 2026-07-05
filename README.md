@@ -75,7 +75,7 @@ Claude API key is fetched from Secrets Manager at cold start — never passed as
 - **Upstream**: `heediq-infra/SummarizationStack` (SQS queue, Lambda shell, IAM grants, env vars) — must be deployed first
 - **Upstream**: `heediq-worker-transcription` — writes `heediq-sources[sourceId].transcript`; summarization worker reads it
 - **Downstream**: nothing yet (Jira/Confluence push is a future feature)
-- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.2.0` (D-068 Source rename)
+- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.5.0` (D-085 `createLogger` structured logger)
 
 ## Testing
 
@@ -94,3 +94,4 @@ Tests mock at the module boundary (`content-loader`, `writer`, `provider`) — h
 - **Module-level client caching** — `handler.ts` caches DynamoDB, S3, and provider instances at module level. Cold start pays the init cost once; warm invocations reuse. Tests must mock at the module boundary (not the SDK level) to avoid state leakage between tests.
 - **First deploy**: the Lambda placeholder (in `SummarizationStack`) must be deployed by CDK before CI can update function code. CI's `aws lambda update-function-code` will fail if the function doesn't exist yet. See `heediq-infra/README.md` §"Initial Setup" for the full account/CDK-bootstrap prerequisites.
 - **`sourceType=audio` path** — S3 load is wired but untested beyond unit level. It is a future path for when transcript text is too large for DynamoDB item limits (~400KB).
+- **Structured logging (D-085):** `handler.ts` logs job start/done and failures via `@heediq/shared`'s `createLogger('heediq-worker-summarization')` — structured JSON correlated by `sourceId`/`jobId`. The logger's own PII denylist redacts transcript/email/token-like metadata. X-Ray active tracing is enabled on the Lambda (`heediq-infra` `SummarizationStack`, D-085).
