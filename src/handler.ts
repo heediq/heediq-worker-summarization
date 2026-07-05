@@ -3,7 +3,7 @@ import { DynamoDBDocumentClient } from '@aws-sdk/lib-dynamodb'
 import { S3Client } from '@aws-sdk/client-s3'
 import type { SQSHandler } from 'aws-lambda'
 import type { Tier } from '@heediq/shared'
-import { SummarizationJobMessageSchema } from '@heediq/shared'
+import { SummarizationJobMessageSchema, createLogger } from '@heediq/shared'
 import { loadConfig } from './config.js'
 import { loadContent } from './content-loader.js'
 import { ClaudeProvider } from './provider.js'
@@ -13,6 +13,8 @@ const MODELS: Record<Tier, string> = {
   free: 'claude-haiku-4-5-20251001',
   paid: 'claude-sonnet-4-6',
 }
+
+const logger = createLogger('heediq-worker-summarization')
 
 // Config and clients are initialised once per cold start — not per invocation.
 // loadConfig() fetches the Claude API key from Secrets Manager; subsequent invocations reuse it.
@@ -49,6 +51,8 @@ export const handler: SQSHandler = async (event) => {
     const msg = SummarizationJobMessageSchema.parse(JSON.parse(record.body))
     const { dynamodb, s3, provider, jobsTable, sourcesTable, audioBucket } = await getClients(msg.tier)
 
+    logger.info('Summarization job started', { sourceId: msg.sourceId, jobId: msg.jobId, tier: msg.tier })
+
     try {
       await writeStatus(msg.jobId, 'summarizing', dynamodb, jobsTable)
 
@@ -57,9 +61,15 @@ export const handler: SQSHandler = async (event) => {
 
       await writeSummary(msg.sourceId, msg.orgId, extraction, dynamodb, sourcesTable)
       await writeStatus(msg.jobId, 'done', dynamodb, jobsTable)
+      logger.info('Summarization job done', { sourceId: msg.sourceId, jobId: msg.jobId })
     } catch (err) {
-      // Log job ID only — never transcript text (D-038 PII rule)
-      console.error('Summarization failed for job', msg.jobId, (err as Error).message)
+      // Log job/source IDs only — never transcript text (D-038 PII rule); the logger's own
+      // denylist also strips it if it were ever accidentally passed as metadata.
+      logger.error('Summarization job failed', {
+        sourceId: msg.sourceId,
+        jobId: msg.jobId,
+        error: (err as Error).message,
+      })
       await writeStatus(msg.jobId, 'failed', dynamodb, jobsTable).catch(() => undefined)
       throw err
     }
