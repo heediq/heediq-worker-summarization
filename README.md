@@ -92,7 +92,5 @@ Tests mock at the module boundary (`content-loader`, `writer`, `provider`) — h
 - **`sourceType=text` → contentRef IS the sourceId** (not an S3 key). The field is named generically for the future `audio` path. Don't assume it's an S3 key for text jobs.
 - **Claude API key fetched at cold start** — any Secrets Manager error on init fails all warm invocations until the next cold start. Rotate secrets carefully.
 - **Module-level client caching** — `handler.ts` caches DynamoDB, S3, and provider instances at module level. Cold start pays the init cost once; warm invocations reuse. Tests must mock at the module boundary (not the SDK level) to avoid state leakage between tests.
-- **Rethrows on error** — Lambda rethrows so SQS retries the message. After 3 attempts the message goes to `heediq-summarization-dlq`. The `failed` status write is best-effort before the rethrow.
-- **No ECR / no ECS** — this is a plain Lambda zip deploy (`lambda update-function-code`), not an ECS Fargate job. No SSM image-tag promotion needed.
 - **First deploy**: the Lambda placeholder (in `SummarizationStack`) must be deployed by CDK before CI can update function code. CI's `aws lambda update-function-code` will fail if the function doesn't exist yet. See `heediq-infra/README.md` §"Initial Setup" for the full account/CDK-bootstrap prerequisites.
 - **`sourceType=audio` path** — S3 load is wired but untested beyond unit level. It is a future path for when transcript text is too large for DynamoDB item limits (~400KB).
