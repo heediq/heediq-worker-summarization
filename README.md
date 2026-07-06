@@ -75,7 +75,7 @@ Claude API key is fetched from Secrets Manager at cold start — never passed as
 - **Upstream**: `heediq-infra/SummarizationStack` (SQS queue, Lambda shell, IAM grants, env vars) — must be deployed first
 - **Upstream**: `heediq-worker-transcription` — writes `heediq-sources[sourceId].transcript`; summarization worker reads it
 - **Downstream**: nothing yet (Jira/Confluence push is a future feature)
-- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.6.0` (D-085/D-093 `createLogger` structured logger, mandatory per D-093)
+- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.7.0` (D-085/D-093 `createLogger` structured logger, mandatory per D-093; 0.7.0 additive adds `passwordPolicy.ts`, not consumed here)
 
 ## Testing
 
