@@ -75,7 +75,7 @@ Claude API key is fetched from Secrets Manager at cold start — never passed as
 - **Upstream**: `heediq-infra/SummarizationStack` (SQS queue, Lambda shell, IAM grants, env vars) — must be deployed first
 - **Upstream**: `heediq-worker-transcription` — writes `heediq-sources[sourceId].transcript`; summarization worker reads it
 - **Downstream**: nothing yet (Jira/Confluence push is a future feature)
-- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.2.0` (D-068 Source rename)
+- **Shared**: `@heediq/shared` (SummarizationJobMessage schema, shared types) — pinned to `^0.6.0` (D-085/D-093 `createLogger` structured logger, mandatory per D-093)
 
 ## Testing
 
@@ -93,4 +93,6 @@ Tests mock at the module boundary (`content-loader`, `writer`, `provider`) — h
 - **Claude API key fetched at cold start** — any Secrets Manager error on init fails all warm invocations until the next cold start. Rotate secrets carefully.
 - **Module-level client caching** — `handler.ts` caches DynamoDB, S3, and provider instances at module level. Cold start pays the init cost once; warm invocations reuse. Tests must mock at the module boundary (not the SDK level) to avoid state leakage between tests.
 - **First deploy**: the Lambda placeholder (in `SummarizationStack`) must be deployed by CDK before CI can update function code. CI's `aws lambda update-function-code` will fail if the function doesn't exist yet. See `heediq-infra/README.md` §"Initial Setup" for the full account/CDK-bootstrap prerequisites.
+- **`@heediq/shared` install:** CI uses `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` to pull from GitHub Packages. Local dev requires a GitHub PAT with `read:packages` scope set as `NODE_AUTH_TOKEN` — add `//npm.pkg.github.com/:_authToken=<PAT>` to `~/.npmrc` or export the var before running `pnpm install`.
 - **`sourceType=audio` path** — S3 load is wired but untested beyond unit level. It is a future path for when transcript text is too large for DynamoDB item limits (~400KB).
+- **Structured logging (D-085/D-093):** `handler.ts` logs job start/done and failures via `@heediq/shared`'s `createLogger('heediq-worker-summarization')` — structured JSON correlated by `sourceId`/`jobId`. Raw `console.log`/`console.error` is disallowed (D-093) — always go through the logger. Default log level is `info` in every environment; `debug` is opt-in via the `LOG_LEVEL` env var, read at runtime with no redeploy needed. The logger's own PII denylist redacts transcript/email/token-like metadata. X-Ray active tracing is enabled on the Lambda (`heediq-infra` `SummarizationStack`, D-085).
