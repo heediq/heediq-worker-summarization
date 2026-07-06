@@ -53,12 +53,17 @@ export const handler: SQSHandler = async (event) => {
 
     logger.info('Summarization job started', { sourceId: msg.sourceId, jobId: msg.jobId, tier: msg.tier })
 
+    // Tracked so a failure's log line names the stage it broke in — the D-085 dashboard's
+    // job-stage funnel query relies on this rather than parsing error messages.
+    let stage: 'loading_content' | 'extracting' | 'writing_summary' = 'loading_content'
     try {
       await writeStatus(msg.jobId, 'summarizing', dynamodb, jobsTable)
 
       const content = await loadContent(msg, sourcesTable, audioBucket, { dynamodb, s3 })
+      stage = 'extracting'
       const extraction = await provider.extract(content)
 
+      stage = 'writing_summary'
       await writeSummary(msg.sourceId, msg.orgId, extraction, dynamodb, sourcesTable)
       await writeStatus(msg.jobId, 'done', dynamodb, jobsTable)
       logger.info('Summarization job done', { sourceId: msg.sourceId, jobId: msg.jobId })
@@ -68,6 +73,7 @@ export const handler: SQSHandler = async (event) => {
       logger.error('Summarization job failed', {
         sourceId: msg.sourceId,
         jobId: msg.jobId,
+        stage,
         error: (err as Error).message,
       })
       await writeStatus(msg.jobId, 'failed', dynamodb, jobsTable).catch(() => undefined)
