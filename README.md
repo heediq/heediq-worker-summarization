@@ -49,7 +49,7 @@ Lambda handler
 ### DynamoDB writes
 
 - `heediq-jobs`: `{ jobId, status, updatedAt }` — status transitions: `summarizing → done | failed`
-- `heediq-sources`: `{ sourceId, requirements[], decisions[], openQuestions[], actionItems[], orgId, summarizedAt }`
+- `heediq-sources`: `{ sourceId, requirements[], decisions[], openQuestions[], actionItems[], orgId, updatedAt }`
 
 ### Environment variables (CDK-injected, D-038)
 
@@ -92,7 +92,7 @@ Tests mock at the module boundary (`content-loader`, `writer`, `provider`) — h
 - **`sourceType=text` → contentRef IS the sourceId** (not an S3 key). The field is named generically for the future `audio` path. Don't assume it's an S3 key for text jobs.
 - **Claude API key fetched at cold start** — any Secrets Manager error on init fails all warm invocations until the next cold start. Rotate secrets carefully.
 - **Module-level client caching** — `handler.ts` caches DynamoDB, S3, and provider instances at module level. Cold start pays the init cost once; warm invocations reuse. Tests must mock at the module boundary (not the SDK level) to avoid state leakage between tests.
-- **First deploy**: the Lambda placeholder (in `SummarizationStack`) must be deployed by CDK before CI can update function code. CI's `aws lambda update-function-code` will fail if the function doesn't exist yet. See `heediq-infra/README.md` §"Initial Setup" for the full account/CDK-bootstrap prerequisites.
+- **First deploy**: the Lambda placeholder (in `SummarizationStack`) must be deployed by CDK before CI can update function code. CI's `aws lambda update-function-code` will fail if the function doesn't exist yet. See `heediq-infra/README.md` §"Initial Setup" for the full account/CDK-bootstrap prerequisites. **Rollback**: re-run `aws lambda update-function-code` with the bundle built from a previous git SHA (services are versioned by SHA, D-047) — there is no aliased/staged Lambda versioning at MVP.
 - **`@heediq/shared` install:** CI uses `NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}` to pull from GitHub Packages. Local dev requires a GitHub PAT with `read:packages` scope set as `NODE_AUTH_TOKEN` — add `//npm.pkg.github.com/:_authToken=<PAT>` to `~/.npmrc` or export the var before running `pnpm install`.
 - **`sourceType=audio` path** — S3 load is wired but untested beyond unit level. It is a future path for when transcript text is too large for DynamoDB item limits (~400KB).
-- **Structured logging (D-085/D-093):** `handler.ts` logs job start/done and failures via `@heediq/shared`'s `createLogger('heediq-worker-summarization')` — structured JSON correlated by `sourceId`/`jobId`. Raw `console.log`/`console.error` is disallowed (D-093) — always go through the logger. Default log level is `info` in every environment; `debug` is opt-in via the `LOG_LEVEL` env var, read at runtime with no redeploy needed. The logger's own PII denylist redacts transcript/email/token-like metadata. X-Ray active tracing is enabled on the Lambda (`heediq-infra` `SummarizationStack`, D-085).
+- **Structured logging (D-085/D-093):** `handler.ts` logs job start/done and failures via `@heediq/shared`'s `createLogger('heediq-worker-summarization')` — structured JSON correlated by `sourceId`/`jobId`. Raw `console.log`/`console.error` is disallowed (D-093) — always go through the logger. Default log level is `info` in every environment; `debug` is opt-in via the `LOG_LEVEL` env var (not set in the CDK stack — the logger defaults to `info`; set it on the Lambda via console/CLI with no redeploy). The logger's own PII denylist redacts transcript/email/token-like metadata. X-Ray active tracing is enabled on the Lambda (`heediq-infra` `SummarizationStack`, D-085).
