@@ -57,7 +57,7 @@ export const handler: SQSHandler = async (event) => {
     // job-stage funnel query relies on this rather than parsing error messages.
     let stage: 'loading_content' | 'extracting' | 'writing_summary' = 'loading_content'
     try {
-      await writeStatus(msg.jobId, 'summarizing', dynamodb, jobsTable)
+      await writeStatus(msg.sourceId, 'summarizing', dynamodb, jobsTable)
 
       const content = await loadContent(msg, sourcesTable, audioBucket, { dynamodb, s3 })
       stage = 'extracting'
@@ -65,7 +65,7 @@ export const handler: SQSHandler = async (event) => {
 
       stage = 'writing_summary'
       await writeSummary(msg.sourceId, msg.orgId, extraction, dynamodb, sourcesTable)
-      await writeStatus(msg.jobId, 'done', dynamodb, jobsTable)
+      await writeStatus(msg.sourceId, 'done', dynamodb, jobsTable)
       logger.info('Summarization job done', { sourceId: msg.sourceId, jobId: msg.jobId })
     } catch (err) {
       // Log job/source IDs only — never transcript text (D-038 PII rule); the logger's own
@@ -76,7 +76,7 @@ export const handler: SQSHandler = async (event) => {
         stage,
         error: (err as Error).message,
       })
-      await writeStatus(msg.jobId, 'failed', dynamodb, jobsTable).catch(() => undefined)
+      await writeStatus(msg.sourceId, 'failed', dynamodb, jobsTable).catch(() => undefined)
       throw err
     }
   }

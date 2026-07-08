@@ -17,18 +17,20 @@ export async function loadContent(
   clients: ContentLoaderClients,
 ): Promise<string> {
   if (msg.sourceType === 'text') {
-    return loadFromDynamoDB(msg.contentRef, sourcesTable, clients.dynamodb)
+    return loadFromDynamoDB(msg.contentRef, msg.orgId, sourcesTable, clients.dynamodb)
   }
   return loadFromS3(msg.contentRef, audioBucket, clients.s3)
 }
 
 async function loadFromDynamoDB(
   sourceId: string,
+  orgId: string,
   sourcesTable: string,
   dynamodb: DynamoDBDocumentClient,
 ): Promise<string> {
+  // heediq-sources' key is composite: pk=orgId, sk=sourceId.
   const result = await dynamodb.send(
-    new GetCommand({ TableName: sourcesTable, Key: { sourceId } }),
+    new GetCommand({ TableName: sourcesTable, Key: { orgId, sourceId } }),
   )
   const transcript = result.Item?.['transcript'] as string | undefined
   if (!transcript) throw new Error(`No transcript found for sourceId=${sourceId}`)

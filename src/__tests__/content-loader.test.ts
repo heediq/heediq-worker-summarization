@@ -34,6 +34,16 @@ describe('loadContent', () => {
     expect(s3.send).not.toHaveBeenCalled()
   })
 
+  it('keys the Get by orgId + sourceId (composite key, not sourceId alone)', async () => {
+    const dynamodb = makeDynamoMock('hello world')
+    const s3 = makeS3Mock('')
+
+    await loadContent(BASE_MSG, 'heediq-sources', 'heediq-audio', { dynamodb, s3 })
+
+    const cmd = dynamodb.send.mock.calls[0][0]
+    expect(cmd.input.Key).toEqual({ orgId: BASE_MSG.orgId, sourceId: BASE_MSG.sourceId })
+  })
+
   it('throws when DynamoDB item has no transcript', async () => {
     const dynamodb = makeDynamoMock(undefined)
     const s3 = makeS3Mock('')

@@ -78,6 +78,10 @@ describe('handler', () => {
     expect(statusCalls[0]).toBe('summarizing')
     expect(statusCalls[statusCalls.length - 1]).toBe('done')
 
+    // heediq-jobs has no jobId key attribute — writeStatus must be keyed by sourceId.
+    const idArgs = mockWriteStatus.mock.calls.map((c) => c[0])
+    expect(idArgs).toEqual(idArgs.map(() => VALID_MSG.sourceId))
+
     expect(mockLoadContent).toHaveBeenCalledOnce()
     expect(mockExtract).toHaveBeenCalledWith('transcript text')
     expect(mockWriteSummary).toHaveBeenCalledOnce()
