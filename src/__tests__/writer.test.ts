@@ -16,12 +16,20 @@ const EXTRACTION: ExtractionResult = {
 describe('writeStatus', () => {
   it('sends an UpdateCommand with the given status', async () => {
     const dynamodb = makeDynamoMock()
-    await writeStatus('job-1', 'done', dynamodb, 'heediq-jobs')
+    await writeStatus('src-1', 'done', dynamodb, 'heediq-jobs')
 
     expect(dynamodb.send).toHaveBeenCalledOnce()
     const cmd = dynamodb.send.mock.calls[0][0]
     expect(cmd.input.TableName).toBe('heediq-jobs')
     expect(cmd.input.ExpressionAttributeValues[':status']).toBe('done')
+  })
+
+  it('keys the Update by sourceId (heediq-jobs has no jobId key attribute)', async () => {
+    const dynamodb = makeDynamoMock()
+    await writeStatus('src-1', 'done', dynamodb, 'heediq-jobs')
+
+    const cmd = dynamodb.send.mock.calls[0][0]
+    expect(cmd.input.Key).toEqual({ sourceId: 'src-1' })
   })
 })
 
@@ -37,6 +45,13 @@ describe('writeSummary', () => {
     expect(vals[':dec']).toEqual(['dec-1'])
     expect(vals[':oq']).toEqual(['oq-1'])
     expect(vals[':ai']).toEqual(['ai-1'])
-    expect(vals[':orgId']).toBe('org-1')
+  })
+
+  it('keys the Update by orgId + sourceId (composite key, not sourceId alone)', async () => {
+    const dynamodb = makeDynamoMock()
+    await writeSummary('src-1', 'org-1', EXTRACTION, dynamodb, 'heediq-sources')
+
+    const cmd = dynamodb.send.mock.calls[0][0]
+    expect(cmd.input.Key).toEqual({ orgId: 'org-1', sourceId: 'src-1' })
   })
 })
