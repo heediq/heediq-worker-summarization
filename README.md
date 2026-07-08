@@ -22,15 +22,15 @@ SQS heediq-summarization (batchSize=1)
   │  SummarizationJobMessage { jobId, sourceId, orgId, sourceType, contentRef, tier }
   ▼
 Lambda handler
-  ├── writeStatus(jobId, 'summarizing')          → heediq-jobs table
+  ├── writeStatus(sourceId, 'summarizing')       → heediq-jobs table, keyed by sourceId
   ├── loadContent(msg) →
-  │     sourceType='text': GET heediq-sources[sourceId].transcript  (contentRef IS sourceId)
+  │     sourceType='text': GET heediq-sources[orgId, sourceId].transcript (contentRef IS sourceId)
   │     sourceType='audio': S3 GetObject(contentRef)                (future path)
   ├── ClaudeProvider.extract(transcript)         → free: claude-haiku-4-5-20251001
   │                                                paid: claude-sonnet-4-6  (D-067)
-  ├── writeSummary(sourceId, extraction)         → heediq-sources table
-  └── writeStatus(jobId, 'done')                 → heediq-jobs table
-      (on error: writeStatus(jobId, 'failed') + rethrow → SQS retry → DLQ after 3 attempts)
+  ├── writeSummary(orgId, sourceId, extraction)  → heediq-sources table, keyed by orgId+sourceId
+  └── writeStatus(sourceId, 'done')              → heediq-jobs table
+      (on error: writeStatus(sourceId, 'failed') + rethrow → SQS retry → DLQ after 3 attempts)
 ```
 
 ## Contracts
@@ -39,17 +39,17 @@ Lambda handler
 
 | Field | Type | Notes |
 |---|---|---|
-| `jobId` | UUID | Keyed in `heediq-jobs` |
-| `sourceId` | UUID | PK in `heediq-sources` (D-068) |
-| `orgId` | UUID | For tenant isolation on writes |
+| `jobId` | UUID | Plain attribute in `heediq-jobs`, NOT part of its key |
+| `sourceId` | UUID | Key attribute in `heediq-jobs` (its only key, no sort key); sort key of `heediq-sources`' composite key (D-068) |
+| `orgId` | UUID | For tenant isolation on writes; partition key of `heediq-sources`' composite key |
 | `sourceType` | `'text' \| 'audio'` | Determines content-load path |
 | `contentRef` | string | `sourceType=text` → sourceId; `sourceType=audio` → S3 key |
 | `tier` | `'free' \| 'paid'` | Selects Claude model: free → Haiku, paid → Sonnet (D-067) |
 
 ### DynamoDB writes
 
-- `heediq-jobs`: `{ jobId, status, updatedAt }` — status transitions: `summarizing → done | failed`
-- `heediq-sources`: `{ sourceId, requirements[], decisions[], openQuestions[], actionItems[], orgId, summarizedAt }`
+- `heediq-jobs`: `Key: { sourceId }` — item shape `{ sourceId, jobId, status, updatedAt }` — status transitions: `summarizing → done | failed`
+- `heediq-sources`: `Key: { orgId, sourceId }` (composite: pk=orgId, sk=sourceId) — item shape `{ orgId, sourceId, requirements[], decisions[], openQuestions[], actionItems[], summarizedAt }`
 
 ### Environment variables (CDK-injected, D-038)
 
