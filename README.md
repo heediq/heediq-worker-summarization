@@ -81,7 +81,7 @@ Claude API key is fetched from Secrets Manager at cold start — never passed as
 
 ```bash
 pnpm install
-pnpm run test:pre-pr   # typecheck + unit tests (12 tests across 4 suites)
+pnpm run test:pre-pr   # typecheck + unit tests (15 tests across 4 suites)
 pnpm run test          # unit tests only
 ```
 
