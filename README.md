@@ -49,7 +49,7 @@ Lambda handler
 ### DynamoDB writes
 
 - `heediq-jobs`: `Key: { sourceId }` — item shape `{ sourceId, jobId, status, updatedAt }` — status transitions: `summarizing → done | failed`
-- `heediq-sources`: `Key: { orgId, sourceId }` (composite: pk=orgId, sk=sourceId) — item shape `{ orgId, sourceId, requirements[], decisions[], openQuestions[], actionItems[], summarizedAt }`
+- `heediq-sources`: `Key: { orgId, sourceId }` (composite: pk=orgId, sk=sourceId) — item shape `{ orgId, sourceId, requirements[], decisions[], openQuestions[], actionItems[], updatedAt }`
 
 ### Environment variables (CDK-injected, D-038)
 
