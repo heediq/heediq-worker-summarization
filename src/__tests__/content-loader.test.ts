@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest'
-import { loadContent } from '../content-loader.js'
+import { loadContent, loadSourceUserId } from '../content-loader.js'
 import type { SummarizationJobMessage } from '@heediq/shared'
 
 const BASE_MSG: SummarizationJobMessage = {
@@ -63,5 +63,25 @@ describe('loadContent', () => {
     expect(content).toBe('audio-derived-content')
     expect(s3.send).toHaveBeenCalledOnce()
     expect(dynamodb.send).not.toHaveBeenCalled()
+  })
+})
+
+describe('loadSourceUserId', () => {
+  it('reads userId off the Source row keyed by orgId + sourceId', async () => {
+    const dynamodb = { send: vi.fn().mockResolvedValue({ Item: { userId: 'user-9' } }) } as any
+
+    const userId = await loadSourceUserId(BASE_MSG.sourceId, BASE_MSG.orgId, 'heediq-sources', dynamodb)
+
+    expect(userId).toBe('user-9')
+    const cmd = dynamodb.send.mock.calls[0][0]
+    expect(cmd.input.Key).toEqual({ orgId: BASE_MSG.orgId, sourceId: BASE_MSG.sourceId })
+  })
+
+  it('throws when the Source row has no userId', async () => {
+    const dynamodb = { send: vi.fn().mockResolvedValue({ Item: {} }) } as any
+
+    await expect(
+      loadSourceUserId(BASE_MSG.sourceId, BASE_MSG.orgId, 'heediq-sources', dynamodb),
+    ).rejects.toThrow('No userId found')
   })
 })

@@ -3,6 +3,8 @@ import { SecretsManagerClient, GetSecretValueCommand } from '@aws-sdk/client-sec
 export interface Config {
   readonly jobsTable: string
   readonly sourcesTable: string
+  readonly contextsTable: string
+  readonly extractedItemsTable: string
   readonly audioBucket: string
   readonly claudeApiKey: string
   readonly awsRegion: string
@@ -27,6 +29,8 @@ export async function loadConfig(): Promise<Config> {
   return {
     jobsTable: requireEnv('JOBS_TABLE_NAME'),
     sourcesTable: requireEnv('SOURCES_TABLE_NAME'),
+    contextsTable: requireEnv('CONTEXTS_TABLE_NAME'),
+    extractedItemsTable: requireEnv('EXTRACTED_ITEMS_TABLE_NAME'),
     audioBucket: requireEnv('AUDIO_BUCKET_NAME'),
     claudeApiKey,
     awsRegion,

@@ -4,14 +4,19 @@ import type { SQSEvent } from 'aws-lambda'
 // Mock at the module boundary — test the handler's orchestration logic without touching
 // DynamoDB/S3/Claude internals (those are covered by their own unit tests).
 const mockLoadContent = vi.fn()
-const mockExtract = vi.fn()
+const mockLoadSourceUserId = vi.fn()
+const mockLoadExistingContexts = vi.fn()
+const mockClassifyExtract = vi.fn()
 const mockWriteStatus = vi.fn()
-const mockWriteSummary = vi.fn()
+const mockWriteExtractedItems = vi.fn()
+const mockWriteSummaryAndClassification = vi.fn()
 
 vi.mock('../config.js', () => ({
   loadConfig: vi.fn().mockResolvedValue({
     jobsTable: 'heediq-jobs',
     sourcesTable: 'heediq-sources',
+    contextsTable: 'heediq-contexts',
+    extractedItemsTable: 'heediq-extracted-items',
     audioBucket: 'heediq-audio',
     claudeApiKey: 'test-key',
     awsRegion: 'eu-west-1',
@@ -22,11 +27,21 @@ vi.mock('@aws-sdk/lib-dynamodb', () => ({
   DynamoDBDocumentClient: { from: vi.fn().mockReturnValue({}) },
 }))
 vi.mock('@aws-sdk/client-s3', () => ({ S3Client: vi.fn().mockReturnValue({}) }))
-vi.mock('../content-loader.js', () => ({ loadContent: mockLoadContent }))
-vi.mock('../provider.js', () => ({
-  ClaudeProvider: vi.fn().mockImplementation((_key: string, _model: string) => ({ extract: mockExtract })),
+vi.mock('../content-loader.js', () => ({
+  loadContent: mockLoadContent,
+  loadSourceUserId: mockLoadSourceUserId,
 }))
-vi.mock('../writer.js', () => ({ writeStatus: mockWriteStatus, writeSummary: mockWriteSummary }))
+vi.mock('../context-loader.js', () => ({ loadExistingContexts: mockLoadExistingContexts }))
+vi.mock('../provider.js', () => ({
+  ClaudeProvider: vi
+    .fn()
+    .mockImplementation((_key: string, _model: string) => ({ classifyExtract: mockClassifyExtract })),
+}))
+vi.mock('../writer.js', () => ({
+  writeStatus: mockWriteStatus,
+  writeExtractedItems: mockWriteExtractedItems,
+  writeSummaryAndClassification: mockWriteSummaryAndClassification,
+}))
 
 const { handler } = await import('../handler.js')
 
@@ -57,21 +72,28 @@ const VALID_MSG = {
   tier: 'free',
 }
 
+const RESULT = {
+  newContextName: 'A project',
+  domain: 'work',
+  labels: [],
+  confidence: 0.9,
+  gist: 'g',
+  items: [{ category: 'requirements', text: 'r', confidence: 0.8 }],
+}
+
 beforeEach(() => {
   vi.clearAllMocks()
   mockLoadContent.mockResolvedValue('transcript text')
-  mockExtract.mockResolvedValue({
-    requirements: ['req-1'],
-    decisions: ['dec-1'],
-    openQuestions: [],
-    actionItems: [],
-  })
+  mockLoadSourceUserId.mockResolvedValue('user-1')
+  mockLoadExistingContexts.mockResolvedValue([])
+  mockClassifyExtract.mockResolvedValue(RESULT)
   mockWriteStatus.mockResolvedValue(undefined)
-  mockWriteSummary.mockResolvedValue(undefined)
+  mockWriteExtractedItems.mockResolvedValue(1)
+  mockWriteSummaryAndClassification.mockResolvedValue(undefined)
 })
 
 describe('handler', () => {
-  it('writes summarizing status, extracts, writes summary, then done in order', async () => {
+  it('runs summarizing → classify+extract → write items → write summary → done, in order', async () => {
     await handler(makeSQSEvent(VALID_MSG), {} as any, () => undefined)
 
     const statusCalls = mockWriteStatus.mock.calls.map((c) => c[1])
@@ -82,13 +104,35 @@ describe('handler', () => {
     const idArgs = mockWriteStatus.mock.calls.map((c) => c[0])
     expect(idArgs).toEqual(idArgs.map(() => VALID_MSG.sourceId))
 
-    expect(mockLoadContent).toHaveBeenCalledOnce()
-    expect(mockExtract).toHaveBeenCalledWith('transcript text')
-    expect(mockWriteSummary).toHaveBeenCalledOnce()
+    expect(mockClassifyExtract).toHaveBeenCalledWith({
+      content: 'transcript text',
+      existingContexts: [],
+    })
+    expect(mockLoadExistingContexts).toHaveBeenCalledWith(
+      VALID_MSG.orgId,
+      'user-1',
+      'heediq-contexts',
+      expect.anything(),
+    )
+    expect(mockWriteExtractedItems).toHaveBeenCalledOnce()
+    expect(mockWriteSummaryAndClassification).toHaveBeenCalledOnce()
   })
 
-  it('writes failed status and rethrows when extraction fails', async () => {
-    mockExtract.mockRejectedValue(new Error('Claude API down'))
+  it('proceeds with no existing contexts when the contexts query fails (fail-soft)', async () => {
+    mockLoadExistingContexts.mockRejectedValue(new Error('GSI throttled'))
+
+    await handler(makeSQSEvent(VALID_MSG), {} as any, () => undefined)
+
+    expect(mockClassifyExtract).toHaveBeenCalledWith({
+      content: 'transcript text',
+      existingContexts: [],
+    })
+    const statusCalls = mockWriteStatus.mock.calls.map((c) => c[1])
+    expect(statusCalls[statusCalls.length - 1]).toBe('done')
+  })
+
+  it('writes failed status and rethrows when classify+extract fails', async () => {
+    mockClassifyExtract.mockRejectedValue(new Error('Claude API down'))
 
     await expect(
       handler(makeSQSEvent(VALID_MSG), {} as any, () => undefined),
@@ -97,6 +141,7 @@ describe('handler', () => {
     const statusCalls = mockWriteStatus.mock.calls.map((c) => c[1])
     expect(statusCalls).toContain('failed')
     expect(statusCalls).not.toContain('done')
+    expect(mockWriteExtractedItems).not.toHaveBeenCalled()
   })
 
   it('throws (SQS retries) on invalid message body', async () => {

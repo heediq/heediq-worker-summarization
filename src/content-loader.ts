@@ -22,6 +22,26 @@ export async function loadContent(
   return loadFromS3(msg.contentRef, audioBucket, clients.s3)
 }
 
+// The classifier scopes its "existing Contexts" query by the uploader's userId, which isn't on the
+// SQS message (only orgId is) — read it off the Source row. One GetCommand on heediq-sources.
+export async function loadSourceUserId(
+  sourceId: string,
+  orgId: string,
+  sourcesTable: string,
+  dynamodb: DynamoDBDocumentClient,
+): Promise<string> {
+  const result = await dynamodb.send(
+    new GetCommand({
+      TableName: sourcesTable,
+      Key: { orgId, sourceId },
+      ProjectionExpression: 'userId',
+    }),
+  )
+  const userId = result.Item?.['userId'] as string | undefined
+  if (!userId) throw new Error(`No userId found for sourceId=${sourceId}`)
+  return userId
+}
+
 async function loadFromDynamoDB(
   sourceId: string,
   orgId: string,
