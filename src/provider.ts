@@ -131,8 +131,26 @@ export class ClaudeProvider implements ExtractionProvider {
       .map((block) => block.text)
       .join('')
 
-    const raw = RawResponseSchema.parse(JSON.parse(text))
+    const raw = RawResponseSchema.parse(parseModelJson(text))
     return shapeResult(raw, input.existingContexts)
+  }
+}
+
+// The prompt asks for raw JSON, but models (Haiku especially) sometimes wrap the object in a
+// ```json … ``` markdown fence or add surrounding prose. Strip a leading/trailing code fence, then
+// fall back to the outermost `{ … }` slice, before parsing — otherwise `JSON.parse` chokes on the
+// backticks and the whole job dead-letters. Genuinely non-JSON text still throws.
+export function parseModelJson(text: string): unknown {
+  const trimmed = text.trim()
+  const fenced = trimmed.match(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/)
+  const candidate = (fenced ? fenced[1] : trimmed).trim()
+  try {
+    return JSON.parse(candidate)
+  } catch {
+    const start = candidate.indexOf('{')
+    const end = candidate.lastIndexOf('}')
+    if (start !== -1 && end > start) return JSON.parse(candidate.slice(start, end + 1))
+    throw new Error('model response was not valid JSON')
   }
 }
 

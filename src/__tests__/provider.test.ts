@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, afterAll, afterEach } from 'vitest'
 import { http, HttpResponse } from 'msw'
 import { setupServer } from 'msw/node'
-import { ClaudeProvider, shapeResult, type ExistingContext } from '../provider.js'
+import { ClaudeProvider, shapeResult, parseModelJson, type ExistingContext } from '../provider.js'
 
 const CTX_ID = '00000000-0000-0000-0000-0000000000c1'
 
@@ -55,6 +55,42 @@ describe('ClaudeProvider.classifyExtract', () => {
     expect(result.items[0].sourceQuote).toBe('we need SSO')
   })
 
+  it('parses a response the model wrapped in a ```json markdown fence', async () => {
+    server.use(
+      http.post('https://api.anthropic.com/v1/messages', () =>
+        HttpResponse.json({
+          content: [
+            {
+              type: 'text',
+              text:
+                '```json\n' +
+                JSON.stringify({
+                  proposedContextId: CTX_ID,
+                  newContextName: 'Auth revamp',
+                  domain: 'work',
+                  labels: ['auth'],
+                  confidence: 0.9,
+                  gist: 'fenced gist',
+                  items: [{ category: 'decisions', text: 'Use Cognito', confidence: 0.7 }],
+                }) +
+                '\n```',
+            },
+          ],
+          stop_reason: 'end_turn',
+          model: 'claude-haiku-4-5-20251001',
+          id: 'm',
+          role: 'assistant',
+          type: 'message',
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+      ),
+    )
+    const provider = new ClaudeProvider('test-api-key', 'claude-haiku-4-5-20251001')
+    const result = await provider.classifyExtract({ content: 'x', existingContexts: EXISTING })
+    expect(result.gist).toBe('fenced gist')
+    expect(result.items.map((i) => i.category)).toEqual(['decisions'])
+  })
+
   it('throws when Claude returns non-JSON text', async () => {
     server.use(
       http.post('https://api.anthropic.com/v1/messages', () =>
@@ -71,6 +107,30 @@ describe('ClaudeProvider.classifyExtract', () => {
     )
     const provider = new ClaudeProvider('test-api-key', 'claude-haiku-4-5-20251001')
     await expect(provider.classifyExtract({ content: 'x', existingContexts: [] })).rejects.toThrow()
+  })
+})
+
+describe('parseModelJson (fence/prose tolerance)', () => {
+  const obj = { a: 1, b: 'x' }
+
+  it('parses raw JSON', () => {
+    expect(parseModelJson(JSON.stringify(obj))).toEqual(obj)
+  })
+
+  it('strips a ```json fence', () => {
+    expect(parseModelJson('```json\n' + JSON.stringify(obj) + '\n```')).toEqual(obj)
+  })
+
+  it('strips a bare ``` fence', () => {
+    expect(parseModelJson('```\n' + JSON.stringify(obj) + '\n```')).toEqual(obj)
+  })
+
+  it('slices the outermost object out of surrounding prose', () => {
+    expect(parseModelJson('Here you go:\n' + JSON.stringify(obj) + '\nHope that helps!')).toEqual(obj)
+  })
+
+  it('throws on genuinely non-JSON text', () => {
+    expect(() => parseModelJson('not json at all')).toThrow()
   })
 })
 
